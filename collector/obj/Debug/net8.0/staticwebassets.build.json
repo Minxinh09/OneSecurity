@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "h8j0Jie+sdA9zHNW1kMAOs+HjhM2usczjr3ItD9f9vw=",
+  "Source": "OneSecurity.Collector",
+  "BasePath": "_content/OneSecurity.Collector",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

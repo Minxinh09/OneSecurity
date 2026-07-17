@@ -1,0 +1,108 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Controllers\**" />
+    <Compile Remove="Services\**" />
+    <Compile Remove="Hubs\**" />
+    <Compile Include="Controllers\AgentController.cs" />
+    <Compile Include="Controllers\DashboardController.cs" />
+    <Compile Include="Controllers\AlertController.cs" />
+    <Compile Include="Controllers\AlertRuleController.cs" />
+    <Compile Include="Controllers\AuthController.cs" />
+    <Compile Include="Controllers\UserController.cs" />
+    <Compile Include="Controllers\AuditController.cs" />
+    <Compile Include="Controllers\IncidentController.cs" />
+    <Compile Include="Controllers\DashboardSummaryController.cs" />
+    <Compile Include="Controllers\ThreatHuntingController.cs" />
+    <Compile Include="Controllers\ResponsesController.cs" />
+    <Compile Include="Controllers\ResponseActionsController.cs" />
+    <Compile Include="Services\IAgentRegistrationService.cs" />
+    <Compile Include="Services\AgentRegistrationService.cs" />
+    <Compile Include="Services\IAgentHeartbeatService.cs" />
+    <Compile Include="Services\AgentHeartbeatService.cs" />
+    <Compile Include="Services\IMetricService.cs" />
+    <Compile Include="Services\MetricService.cs" />
+    <Compile Include="Services\ISecurityEventService.cs" />
+    <Compile Include="Services\SecurityEventService.cs" />
+    <Compile Include="Services\IRuleEngineService.cs" />
+    <Compile Include="Services\RuleEngineService.cs" />
+    <Compile Include="Services\IDashboardService.cs" />
+    <Compile Include="Services\DashboardService.cs" />
+    <Compile Include="Services\IAlertManagementService.cs" />
+    <Compile Include="Services\AlertManagementService.cs" />
+    <Compile Include="Services\IAlertRuleManagementService.cs" />
+    <Compile Include="Services\AlertRuleManagementService.cs" />
+    <Compile Include="Services\INotificationService.cs" />
+    <Compile Include="Services\TelegramNotificationService.cs" />
+    <Compile Include="Services\IAuthService.cs" />
+    <Compile Include="Services\AuthService.cs" />
+    <Compile Include="Services\IAuditService.cs" />
+    <Compile Include="Services\AuditService.cs" />
+    <Compile Include="Services\IIncidentService.cs" />
+    <Compile Include="Services\IncidentService.cs" />
+    <Compile Include="Services\IOverviewService.cs" />
+    <Compile Include="Services\OverviewService.cs" />
+    <Compile Include="Services\ITimelineService.cs" />
+    <Compile Include="Services\TimelineService.cs" />
+    <Compile Include="Services\IThreatHuntingService.cs" />
+    <Compile Include="Services\ThreatHuntingService.cs" />
+    <Compile Include="Services\IThreatSearchProvider.cs" />
+    <Compile Include="Services\HuntingProviders\AgentThreatSearchProvider.cs" />
+    <Compile Include="Services\HuntingProviders\AlertThreatSearchProvider.cs" />
+    <Compile Include="Services\HuntingProviders\IncidentThreatSearchProvider.cs" />
+    <Compile Include="Services\HuntingProviders\AuditLogThreatSearchProvider.cs" />
+    <Compile Include="Services\HuntingProviders\SecurityEventThreatSearchProvider.cs" />
+    <Compile Include="Services\IRuleCacheService.cs" />
+    <Compile Include="Services\RuleCacheService.cs" />
+    <Compile Include="Services\IRuleEngine.cs" />
+    <Compile Include="Services\RuleEngine.cs" />
+    <Compile Include="Services\RegexCache.cs" />
+    <Compile Include="Services\RuleEvaluationContext.cs" />
+    <Compile Include="Services\RuleEvaluationResult.cs" />
+    <Compile Include="Services\IRuleStatisticsTracker.cs" />
+    <Compile Include="Services\RuleStatisticsTracker.cs" />
+    <Compile Include="Controllers\RulesController.cs" />
+    <Compile Include="Services\ICommandDispatcher.cs" />
+    <Compile Include="Services\CommandDispatcher.cs" />
+    <Compile Include="Services\IResponseService.cs" />
+    <Compile Include="Services\ResponseService.cs" />
+    <Compile Include="Services\IResponseActionService.cs" />
+    <Compile Include="Services\ResponseActionService.cs" />
+    <Compile Include="Services\IAssetService.cs" />
+    <Compile Include="Services\AssetService.cs" />
+    <Compile Include="Services\ICollectorService.cs" />
+    <Compile Include="Services\CollectorService.cs" />
+    <Compile Include="Services\IPolicyService.cs" />
+    <Compile Include="Services\PolicyService.cs" />
+    <Compile Include="Services\IEnrollmentService.cs" />
+    <Compile Include="Services\EnrollmentService.cs" />
+    <Compile Include="Controllers\AssetsController.cs" />
+    <Compile Include="Controllers\CollectorsController.cs" />
+    <Compile Include="Controllers\PoliciesController.cs" />
+    <Compile Include="Controllers\EnrollmentController.cs" />
+    <Compile Include="Services\IHospitalAuthService.cs" />
+    <Compile Include="Services\HospitalAuthService.cs" />
+    <Compile Include="Services\HospitalHierarchyCache.cs" />
+    
+    <Compile Include="Controllers\HospitalController.cs" />
+
+    
+  </ItemGroup>
+
+</Project>

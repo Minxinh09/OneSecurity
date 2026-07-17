@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "lFJid07KyxCJYX3XZY5+LAzeipwJOPq3xIch8r8Q8gA=",
+  "Source": "OneSecurity.Server",
+  "BasePath": "_content/OneSecurity.Server",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

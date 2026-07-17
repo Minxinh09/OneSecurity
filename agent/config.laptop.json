@@ -1,0 +1,9 @@
+{
+  "ServerUrl": "http://192.168.1.35:5050",
+  "ApiKey": "onesecurity_secret_key_2026",
+  "AgentId": "agent-laptop-01",
+  "Hostname": "",
+  "Mode": "simulator",
+  "HeartbeatIntervalSeconds": 10,
+  "HospitalCode": "HOSP_B"
+}

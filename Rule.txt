@@ -1,0 +1,125 @@
+# Project Coding Rules
+
+These rules are mandatory. Every generated code must follow them unless explicitly instructed otherwise.
+
+---
+
+## List Pages
+
+Every page that displays a list of records MUST include:
+
+### Filtering
+
+At minimum:
+
+- Keyword search
+- Reset filters button
+
+When applicable also include:
+
+- Status filter
+- Department filter
+- Faculty filter
+- Semester filter
+- Course filter
+- Date range filter
+- Role filter
+- Class filter
+
+Filtering controls must appear above the table.
+
+### Pagination
+
+Every list must support pagination.
+
+### Preserve Filters
+
+Current filter values must remain after:
+
+- Pagination
+- Sorting
+- Refresh
+
+### Server-side Filtering
+
+Filtering must be implemented in the Controller using IQueryable.
+
+Never load all records into memory before filtering.
+
+### Sorting
+
+Every list should support sorting by important columns when appropriate.
+
+---
+
+## Forms
+
+Every Create/Edit page must include:
+
+- Server-side validation
+- Client-side validation
+- Validation summary
+- AntiForgeryToken
+- Success/Error notifications
+
+---
+
+## Security
+
+Every POST action must contain:
+
+```csharp
+[HttpPost]
+[ValidateAntiForgeryToken]
+```
+
+Never trust client input.
+
+Always validate ModelState.
+
+---
+
+## Logging
+
+Every Create, Update and Delete operation must write an Audit Log including:
+
+- User
+- Time
+- Action
+- Entity
+- Entity Id
+- Old Value (if applicable)
+- New Value (if applicable)
+
+---
+
+## Authorization
+
+Every Controller must require authorization.
+
+Sensitive actions must be protected by Roles or Policies.
+
+---
+
+## Architecture
+
+- Use ViewModel instead of Entity in Views.
+- Keep Controllers thin.
+- Business logic belongs in Services.
+- Avoid duplicated code.
+- Use async/await whenever possible.
+
+---
+
+## UI
+
+Tables should have:
+
+- Search
+- Filters
+- Pagination
+- Sorting
+- Responsive layout
+- Action buttons (View, Edit, Delete)
+
+No list page should be generated without filtering capability.
