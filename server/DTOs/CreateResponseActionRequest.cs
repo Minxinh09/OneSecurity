@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using OneSecurity.Server.Models.Enums;
 
 namespace OneSecurity.Server.DTOs
 {
@@ -11,7 +13,8 @@ namespace OneSecurity.Server.DTOs
         public required string AgentId { get; set; }
         
         [Required(ErrorMessage = "ActionType is required")]
-        public required string ActionType { get; set; } // enum string
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ResponseActionType ActionType { get; set; }
         
         public string? Parameters { get; set; }
         public string? Metadata { get; set; }

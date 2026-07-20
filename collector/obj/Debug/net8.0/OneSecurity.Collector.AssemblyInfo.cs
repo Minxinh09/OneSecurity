@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OneSecurity.Collector")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+340cde17100c18b75347e6e5dcd7d7a3c5a669f8")]
 [assembly: System.Reflection.AssemblyProductAttribute("OneSecurity.Collector")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OneSecurity.Collector")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

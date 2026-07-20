@@ -19,6 +19,11 @@ namespace OneSecurity.Server.Models.Enums
         RestartAgent,
         RestartCollector,
         RestartIIS,
-        RestartSQL
+        RestartSQL,
+        
+        // Aliases for Frontend Compatibility
+        RestartSqlServer,
+        SyncConfig,
+        Reboot
     }
 }

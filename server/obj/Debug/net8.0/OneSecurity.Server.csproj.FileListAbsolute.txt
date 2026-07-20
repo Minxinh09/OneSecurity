@@ -133,3 +133,4 @@ C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\server\obj\Debug\net8.0\
 C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\server\obj\Debug\net8.0\OneSecurity.Server.pdb
 C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\server\obj\Debug\net8.0\OneSecurity.Server.genruntimeconfig.cache
 C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\server\obj\Debug\net8.0\ref\OneSecurity.Server.dll
+C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\server\obj\Debug\net8.0\OneSecurity.Server.sourcelink.json

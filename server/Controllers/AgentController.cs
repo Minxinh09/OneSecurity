@@ -19,6 +19,7 @@ namespace OneSecurity.Server.Controllers
         private readonly IAgentHeartbeatService _heartbeatService;
         private readonly IMetricService _metricService;
         private readonly ISecurityEventService _eventService;
+        private readonly ICommandQueueService _queueService;
         private readonly LocalAgentDbContext _dbContext;
 
         public AgentController(
@@ -26,12 +27,14 @@ namespace OneSecurity.Server.Controllers
             IAgentHeartbeatService heartbeatService,
             IMetricService metricService,
             ISecurityEventService eventService,
+            ICommandQueueService queueService, // Tiêm vào
             LocalAgentDbContext dbContext)
         {
             _registrationService = registrationService;
             _heartbeatService = heartbeatService;
             _metricService = metricService;
             _eventService = eventService;
+            _queueService = queueService; // Gán vào
             _dbContext = dbContext;
         }
 
@@ -242,30 +245,22 @@ namespace OneSecurity.Server.Controllers
             {
                 return BadRequest("Missing agentId parameter.");
             }
-
-            var action = await _dbContext.ResponseActions
-                .Where(r => r.AgentId == agentId && r.Status == Models.Enums.ResponseStatus.Queued)
-                .OrderBy(r => r.RequestedAt)
-                .FirstOrDefaultAsync();
-
+            // Gọi hàng đợi để lấy lệnh Pending tiếp theo (FIFO) dạng Read-Only
+            var action = await _queueService.GetNextCommandAsync(agentId);
             if (action == null)
             {
-                return NoContent();
+                return NoContent(); // Trả về 204 No Content nếu rỗng
             }
-
-            // Update status to Executing via service to trigger SignalR & Audit
-            var responseService = HttpContext.RequestServices.GetRequiredService<IResponseService>();
-            await responseService.UpdateExecutionStatusAsync(action.CorrelationId, "Executing", "Agent is starting execution.");
-
+            // Map dữ liệu ra DTO bao gồm cả Parameters
             var commandDto = new AgentCommandDto
             {
                 CommandId = action.CorrelationId,
                 AgentId = action.AgentId,
                 ActionType = action.ActionType.ToString(),
-                Metadata = action.Metadata
+                Metadata = action.Metadata,
+                Parameters = action.Parameters
             };
-
-            return Ok(commandDto);
+            return Ok(commandDto); // Trả về 200 OK kèm command payload
         }
 
         public class CommandResultRequest

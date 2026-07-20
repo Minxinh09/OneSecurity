@@ -92,6 +92,7 @@ builder.Services.AddSingleton<IRuleStatisticsTracker, RuleStatisticsTracker>();
 builder.Services.AddHttpClient<ICommandDispatcher, CommandDispatcher>();
 builder.Services.AddScoped<IResponseService, ResponseService>();
 builder.Services.AddScoped<IResponseActionService, ResponseActionService>();
+builder.Services.AddScoped<ICommandQueueService, CommandQueueService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IOverviewService, OverviewService>();
 builder.Services.AddScoped<ITimelineService, TimelineService>();

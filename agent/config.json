@@ -1,13 +1,13 @@
 {
-  "ServerUrl": "http://192.168.1.35:5050",
-  "ApiKey": "onesecurity_secret_key_2026",
   "AgentId": "",
-  "Hostname": "",
-  "Mode": "simulator",
-  "HeartbeatIntervalSeconds": 10,
-  "HospitalCode": "HOSP_A",
+  "AgentVersion": "1.2.0",
+  "ApiKey": "onesecurity_secret_key_2026",
+  "Capabilities": "ProcessMonitor,FileIntegrity,NetworkMonitor",
   "CollectorId": 1,
   "EnrollmentToken": "",
-  "AgentVersion": "1.2.0",
-  "Capabilities": "ProcessMonitor,FileIntegrity,NetworkMonitor"
+  "HeartbeatIntervalSeconds": 10,
+  "HospitalCode": "HOSP_A",
+  "Hostname": "",
+  "Mode": "simulator",
+  "ServerUrl": "http://192.168.1.35:5082"
 }

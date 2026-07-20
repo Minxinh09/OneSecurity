@@ -106,8 +106,21 @@ namespace OneSecurity.Server.Services
                 throw new UnauthorizedAccessException("You do not have access to this agent.");
             }
 
-            // 3. Parse action type
-            if (!Enum.TryParse<ResponseActionType>(request.ActionType, true, out var actionType))
+            var rawActionType = request.ActionType;
+            if (string.Equals(rawActionType, "RestartSqlServer", StringComparison.OrdinalIgnoreCase))
+            {
+                rawActionType = "RestartSQL";
+            }
+            else if (string.Equals(rawActionType, "SyncConfig", StringComparison.OrdinalIgnoreCase))
+            {
+                rawActionType = "SyncConfiguration";
+            }
+            else if (string.Equals(rawActionType, "Reboot", StringComparison.OrdinalIgnoreCase))
+            {
+                rawActionType = "Restart";
+            }
+
+            if (!Enum.TryParse<ResponseActionType>(rawActionType, true, out var actionType))
             {
                 throw new ArgumentException($"Invalid response action type: {request.ActionType}");
             }
@@ -115,7 +128,13 @@ namespace OneSecurity.Server.Services
             if (actionType != ResponseActionType.Restart &&
                 actionType != ResponseActionType.CollectDiagnostics &&
                 actionType != ResponseActionType.RunScan &&
-                actionType != ResponseActionType.SyncConfiguration)
+                actionType != ResponseActionType.SyncConfiguration &&
+                actionType != ResponseActionType.CollectLogs &&
+                actionType != ResponseActionType.RestartAgent &&
+                actionType != ResponseActionType.RestartCollector &&
+                actionType != ResponseActionType.RestartIIS &&
+                actionType != ResponseActionType.RestartSQL &&
+                actionType != ResponseActionType.Shutdown)
             {
                 throw new InvalidOperationException($"Action type '{actionType}' is not supported or is disabled for security reasons.");
             }
@@ -350,6 +369,7 @@ namespace OneSecurity.Server.Services
             {
                 action.CompletedAt = DateTime.UtcNow;
                 action.ResultMessage = message ?? "Succeeded.";
+                action.Output = message;
                 _responseRepository.Update(action);
                 await _responseRepository.SaveChangesAsync();
 
@@ -370,6 +390,7 @@ namespace OneSecurity.Server.Services
             {
                 action.CompletedAt = DateTime.UtcNow;
                 action.ResultMessage = message ?? "Failed.";
+                action.ErrorMessage = message;
                 _responseRepository.Update(action);
                 await _responseRepository.SaveChangesAsync();
 
@@ -409,7 +430,12 @@ namespace OneSecurity.Server.Services
                 CompletedAt = action.CompletedAt,
                 ResultMessage = action.ResultMessage,
                 CorrelationId = action.CorrelationId,
-                Metadata = action.Metadata
+                Metadata = action.Metadata,
+                Parameters = action.Parameters,
+                ErrorMessage = action.ErrorMessage,
+                Output = action.Output,
+                HospitalId = action.HospitalId,
+                CreatedBy = action.CreatedBy
             };
         }
     }

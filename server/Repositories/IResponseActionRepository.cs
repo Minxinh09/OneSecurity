@@ -9,6 +9,7 @@ namespace OneSecurity.Server.Repositories
         Task<ResponseAction?> GetByIdAsync(long id);
         Task<List<ResponseAction>> GetByAgentIdAsync(string agentId);
         Task<List<ResponseAction>> GetPendingActionsAsync();
+        Task<ResponseAction?> GetNextPendingActionAsync(string agentId);
         Task<(List<ResponseAction> Items, int TotalCount)> GetPagedAsync(
             int page, 
             int pageSize, 

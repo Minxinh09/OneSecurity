@@ -6,5 +6,6 @@ namespace OneSecurity.Server.DTOs
         public string AgentId { get; set; } = string.Empty;
         public string ActionType { get; set; } = string.Empty;
         public string? Metadata { get; set; }
+        public string? Parameters { get; set; }
     }
 }

@@ -31,3 +31,4 @@ C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\collector\obj\Debug\net8
 C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\collector\obj\Debug\net8.0\OneSecurity.Collector.pdb
 C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\collector\obj\Debug\net8.0\OneSecurity.Collector.genruntimeconfig.cache
 C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\collector\obj\Debug\net8.0\ref\OneSecurity.Collector.dll
+C:\Users\MinhHQ\.gemini\antigravity\scratch\onesecurity\collector\obj\Debug\net8.0\OneSecurity.Collector.sourcelink.json

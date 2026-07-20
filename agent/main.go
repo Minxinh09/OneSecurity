@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec" // Thêm thư viện này
 	"regexp"
 	"runtime"
 	"strings"
@@ -84,7 +85,7 @@ var currentServerCode = "agent-win-his-01"
 
 func main() {
 	fmt.Println("Starting OneSecurity Go Agent...")
-
+	fmt.Println(">>> AGENT PHIEN BAN MOI 20-07-2026 <<<")
 	// Parse --config flag first (before other flags)
 	configFile := "config.json"
 	for i, arg := range os.Args[1:] {
@@ -443,6 +444,7 @@ type GoAgentCommand struct {
 	AgentId    string `json:"agentId"`
 	ActionType string `json:"actionType"`
 	Metadata   string `json:"metadata"`
+	Parameters string `json:"parameters"`
 }
 
 type CommandReportResult struct {
@@ -486,7 +488,7 @@ func pollCommandsLoop() {
 		}
 		resp.Body.Close()
 
-		fmt.Printf("[Response Action] Received command: ID=%s, Action=%s\n", cmd.CommandId, cmd.ActionType)
+		fmt.Printf("[Response Action] Received command: ID=%s, Action=%s, Parameters=%s\n", cmd.CommandId, cmd.ActionType, cmd.Parameters)
 		go executeAgentCommand(cmd)
 	}
 }
@@ -519,54 +521,655 @@ func reportCommandResult(commandId string, status string, message string) {
 }
 
 func executeAgentCommand(cmd GoAgentCommand) {
-	// 1. Report executing status
-	reportCommandResult(cmd.CommandId, "Executing", "Agent is starting execution of " + cmd.ActionType)
-
-	// Simulate work
-	time.Sleep(2 * time.Second)
-
-	status := "Succeeded"
-	msg := ""
-
+	// Dispatcher chỉ định tuyến bất đồng bộ (Goroutines) và không can thiệp vào vòng đời hay báo cáo kết quả
 	switch strings.ToLower(cmd.ActionType) {
-	case "restart":
-		msg = "Agent restart initiated. Process restarting..."
-		fmt.Println("[Response Action] Agent restart simulation started...")
-	case "collectdiagnostics":
-		diagnostics := map[string]interface{}{
-			"timestamp": time.Now().Format(time.RFC3339),
-			"os": runtime.GOOS,
-			"arch": runtime.GOARCH,
-			"numCpu": runtime.NumCPU(),
-			"numGoroutine": runtime.NumGoroutine(),
-			"mockProcesses": []string{
-				"onesecurity-agent.exe",
-				"explorer.exe",
-				"chrome.exe",
-				"sqlservr.exe",
-				"w3wp.exe",
-			},
-			"diskUsagePercent": 42.5,
-			"ramUsagePercent": 61.2,
-		}
-		diagBytes, _ := json.Marshal(diagnostics)
-		msg = string(diagBytes)
-		fmt.Println("[Response Action] Collected diagnostic data successfully.")
+	case "restartagent":
+		go handleRestartAgent(cmd)
+	case "restartcollector":
+		go handleRestartCollector(cmd)
+	case "restartiis":
+		go handleRestartIIS(cmd)
+	case "restartsql":
+		go handleRestartSQL(cmd)
+	case "collectlogs":
+		go handleCollectLogs(cmd)
 	case "runscan":
-		msg = "Quick vulnerability and security scan completed. No active threat detected."
-		fmt.Println("[Response Action] Run scan execution completed.")
-	case "syncconfiguration":
-		msg = "Agent local policies and logging configurations synchronized with server."
-		fmt.Println("[Response Action] Configuration synchronization completed.")
+		go handleRunScan(cmd)
+	case "syncconfig", "syncconfiguration":
+		go handleSyncConfig(cmd)
+	case "shutdown":
+		go handleShutdown(cmd)
+	case "reboot", "restart":
+		go handleReboot(cmd)
+	case "collectdiagnostics":
+		go handleCollectDiagnostics(cmd)
 	default:
-		status = "Failed"
-		msg = fmt.Sprintf("Action type '%s' is not implemented on this agent.", cmd.ActionType)
+		// Trường hợp lệnh hoàn toàn không có trong danh mục hệ thống
+		reportCommandResult(cmd.CommandId, "Failed", fmt.Sprintf("Action type '%s' is not implemented on this agent.", cmd.ActionType))
 		fmt.Printf("[Response Action] Unsupported command action: %s\n", cmd.ActionType)
 	}
-
-	// 2. Report final status
-	reportCommandResult(cmd.CommandId, status, msg)
 }
+
+// ==========================================
+// CÁC HÀM XỬ LÝ CON TỰ BÁO CÁO (SELF-REPORTING STUBS)
+// ==========================================
+
+func handleRestartAgent(cmd GoAgentCommand) {
+	fmt.Println("[Response Action] Executing RestartAgent command...")
+	
+	// 1. Báo cáo trạng thái đang thực thi (Đồng bộ)
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is initiating self-restart process.")
+	// Lấy đường dẫn của tệp tin thực thi hiện tại
+	self, err := os.Executable()
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to resolve executable path: "+err.Error())
+		return
+	}
+	// 2. Chuẩn bị lệnh khởi chạy tiến trình mới
+	execCmd := exec.Command(self, os.Args[1:]...)
+	execCmd.Stdin = os.Stdin
+	execCmd.Stdout = os.Stdout
+	execCmd.Stderr = os.Stderr
+	// 3. Khởi chạy tiến trình mới
+	err = execCmd.Start()
+	if err != nil {
+		// Nếu khởi chạy thất bại, báo cáo Failed về Server và tiếp tục chạy tiến trình cũ (không Exit)
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to spawn new agent process: "+err.Error())
+		return
+	}
+	// 4. Chỉ báo cáo Succeeded sau khi tiến trình mới khởi chạy thành công
+	reportCommandResult(cmd.CommandId, "Succeeded", "Agent self-restart process successfully spawned. Exiting old process.")
+	// 5. Thoát tiến trình cũ an toàn, giải phóng socket
+	os.Exit(0)
+}
+
+func handleRestartCollector(cmd GoAgentCommand) {
+	
+	fmt.Println("[Response Action] Executing RestartCollector command...")
+	
+	// 1. Báo cáo trạng thái đang thực thi
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is initiating dynamic Collector restart.")
+
+	// Kiểm tra xem Collector có chạy trên máy cục bộ không (Đơn giản hóa bằng cách check URL cấu hình)
+	isLocal := strings.Contains(globalConfig.ServerUrl, "localhost") || 
+		strings.Contains(globalConfig.ServerUrl, "127.0.0.1") || 
+		strings.Contains(globalConfig.ServerUrl, getLocalIP())
+		
+	if !isLocal {
+		reportCommandResult(cmd.CommandId, "Failed", "Collector is remote; local restart is not supported.")
+		return
+	}
+
+	// 2. Truy vấn OS để lấy Executable Path và PID của Collector đang chạy (Windows)
+	var collectorPath string
+	var pid int
+	
+	if runtime.GOOS == "windows" {
+		// Chạy wmic để lấy đường dẫn thực thi và ProcessId
+		wmicCmd := exec.Command("wmic", "process", "where", "name='OneSecurity.Collector.exe'", "get", "ExecutablePath,ProcessId", "/format:csv")
+		output, err := wmicCmd.Output()
+		if err != nil || len(output) == 0 {
+			reportCommandResult(cmd.CommandId, "Failed", "No running Collector process found on this machine.")
+			return
+		}
+		
+		// Parse CSV output để lấy Path và PID
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			parts := strings.Split(strings.TrimSpace(line), ",")
+			if len(parts) >= 3 && strings.Contains(parts[1], "OneSecurity.Collector.exe") {
+				collectorPath = parts[1]
+				fmt.Sscanf(parts[2], "%d", &pid)
+				break
+			}
+		}
+	} else {
+		// Trình triển khai dự phòng cho Linux/Unix
+		collectorPath = "/usr/local/bin/OneSecurity.Collector"
+		pid = 0 // Sử dụng cơ chế pkill thông thường
+	}
+
+	if collectorPath == "" {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to resolve Collector executable path from active processes.")
+		return
+	}
+
+	// 3. Tiến hành dừng đúng tiến trình Collector cũ qua PID
+	var killCmd *exec.Cmd
+	if runtime.GOOS == "windows" && pid > 0 {
+		killCmd = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
+	} else {
+		killCmd = exec.Command("pkill", "-f", "OneSecurity.Collector")
+	}
+	
+	err := killCmd.Run()
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to terminate the running Collector process: "+err.Error())
+		return
+	}
+
+	// Chờ 1 giây giải phóng Socket
+	time.Sleep(1 * time.Second)
+
+	// 4. Khởi chạy tiến trình Collector mới từ đường dẫn động đã lấy được
+	collectorCmd := exec.Command(collectorPath)
+	err = collectorCmd.Start()
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to spawn new Collector process: "+err.Error())
+		return
+	}
+
+	// 5. Thực hiện Health Check (TCP Dial) vào cổng của Collector (5050)
+	// Thử kết nối tối đa 10 lần, mỗi lần cách nhau 500ms (Tổng cộng 5 giây)
+	collectorAddress := "127.0.0.1:5050" // Địa chỉ cổng mặc định của Collector
+	healthCheckPassed := false
+	
+	for i := 0; i < 10; i++ {
+		conn, err := net.DialTimeout("tcp", collectorAddress, 1*time.Second)
+		if err == nil {
+			conn.Close()
+			healthCheckPassed = true
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if !healthCheckPassed {
+		reportCommandResult(cmd.CommandId, "Failed", "Collector process spawned but failed health check on port 5050 within 5 seconds.")
+		return
+	}
+
+	// 6. Báo cáo Succeeded khi Health Check thành công
+	reportCommandResult(cmd.CommandId, "Succeeded", "Collector restarted and successfully passed health check.")
+}
+
+func handleRestartIIS(cmd GoAgentCommand) {
+	fmt.Println("[Response Action] Executing RestartIIS command...")
+	
+	// 1. Báo cáo trạng thái đang thực thi (Đồng bộ)
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is initiating IIS Web Server reset.")
+
+	// Kiểm tra hệ điều hành (IIS chỉ hỗ trợ Windows)
+	if runtime.GOOS != "windows" {
+		reportCommandResult(cmd.CommandId, "Failed", "IIS is only supported on Windows operating systems.")
+		return
+	}
+
+	// 2. Kiểm tra xem dịch vụ IIS (w3svc) có được cài đặt và trạng thái hiện tại là gì
+	// Sử dụng CombinedOutput để thu thập thông tin chi tiết dịch vụ
+	queryOutput, err := exec.Command("sc", "query", "w3svc").CombinedOutput()
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "IIS Web Service (w3svc) is not installed or registered on this system.")
+		return
+	}
+
+	// Phân tích trạng thái STATE của w3svc từ output để cung cấp log chi tiết
+	w3svcState := "Unknown"
+	lines := strings.Split(string(queryOutput), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "STATE") {
+			parts := strings.Split(line, ":")
+			if len(parts) >= 2 {
+				w3svcState = strings.TrimSpace(parts[1])
+			}
+			break
+		}
+	}
+	fmt.Printf("[Response Action] Detected IIS Service state: %s\n", w3svcState)
+
+	// 3. Thực thi reset IIS
+	// LƯU Ý THIẾT KẾ: Chúng tôi chủ động khởi động lại toàn bộ dịch vụ IIS (iisreset) thay vì các Application Pool đơn lẻ 
+	// nhằm đưa toàn bộ dịch vụ Web về trạng thái sạch sẽ và đồng bộ nhất.
+	//
+	// LƯU Ý BẢO MẬT: Agent tuân thủ nghiêm ngặt cơ chế phân quyền của Windows. Không thực hiện leo thang đặc quyền (No privilege escalation).
+	// Nếu tài khoản chạy Agent thiếu quyền Admin, Agent sẽ báo cáo lỗi chi tiết về Server và tiếp tục duy trì hoạt động bình thường.
+	resetCmd := exec.Command("iisreset")
+	output, err := resetCmd.CombinedOutput()
+	if err != nil {
+		// Bắt lỗi thiếu quyền (Access Denied) hoặc các lỗi hệ thống khác và gửi chi tiết về Server
+		errMsg := strings.TrimSpace(string(output))
+		if errMsg == "" {
+			errMsg = err.Error()
+		}
+		reportCommandResult(cmd.CommandId, "Failed", fmt.Sprintf("Failed to reset IIS. Current Service State: %s. Details: %s", w3svcState, errMsg))
+		return
+	}
+
+	// 4. Báo cáo thành công khi hoàn thành không lỗi
+	reportCommandResult(cmd.CommandId, "Succeeded", fmt.Sprintf("IIS Web Server restarted successfully. Previous Service State: %s.", w3svcState))
+}
+
+// ==========================================
+// CÁC HÀM TRUY VẤN DỊCH VỤ WINDOWS HỖ TRỢ
+// ==========================================
+
+func discoverSQLServices() ([]string, error) {
+	// Chạy sc query state= all để lấy toàn bộ danh sách dịch vụ
+	cmd := exec.Command("sc", "query", "state=", "all")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+
+	var services []string
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(strings.ToUpper(trimmed), "SERVICE_NAME:") {
+			parts := strings.Split(trimmed, ":")
+			if len(parts) >= 2 {
+				name := strings.TrimSpace(parts[1])
+				// Lọc các dịch vụ bắt đầu bằng MSSQL
+				if strings.HasPrefix(strings.ToUpper(name), "MSSQL") {
+					services = append(services, name)
+				}
+			}
+		}
+	}
+	return services, nil
+}
+
+func getServiceState(serviceName string) (string, error) {
+	cmd := exec.Command("sc", "query", serviceName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "STATE") {
+			parts := strings.Split(line, ":")
+			if len(parts) >= 2 {
+				return strings.TrimSpace(parts[1]), nil
+			}
+		}
+	}
+	return "UNKNOWN", nil
+}
+
+// ==========================================
+// THỰC THI RESTART SQL SERVER
+// ==========================================
+
+func handleRestartSQL(cmd GoAgentCommand) {
+	fmt.Println("[Response Action] Executing RestartSQL command...")
+	
+	// 1. Báo cáo trạng thái đang thực thi (Đồng bộ)
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is initiating SQL Server service restart.")
+
+	// Kiểm tra hệ điều hành
+	if runtime.GOOS != "windows" {
+		reportCommandResult(cmd.CommandId, "Failed", "SQL Server service control is only supported on Windows operating systems.")
+		return
+	}
+
+	// 2. Dò tìm các dịch vụ SQL Server chạy trên máy bằng lệnh sc query
+	services, err := discoverSQLServices()
+	
+	// Nếu quét động thất bại hoặc không ra kết quả, sử dụng kiểm tra các ứng viên mặc định
+	if err != nil || len(services) == 0 {
+		candidates := []string{"MSSQLSERVER", "MSSQL$SQLEXPRESS"}
+		for _, candidate := range candidates {
+			if exec.Command("sc", "query", candidate).Run() == nil {
+				services = append(services, candidate)
+			}
+		}
+	}
+
+	// Không tìm thấy bất kỳ dịch vụ SQL nào
+	if len(services) == 0 {
+		reportCommandResult(cmd.CommandId, "Failed", "SQL Server service not found on this system. Checked custom and default instances (MSSQLSERVER, MSSQL$SQLEXPRESS).")
+		return
+	}
+
+	// Lấy dịch vụ SQL Server đầu tiên tìm được
+	sqlServiceName := services[0]
+	fmt.Printf("[Response Action] Target SQL Server service detected: %s\n", sqlServiceName)
+
+	// LƯU Ý BẢO MẬT: Không leo thang đặc quyền. Báo lỗi phân quyền nếu thiếu quyền Admin.
+	// 3. Thực hiện dừng dịch vụ (net stop)
+	stopCmd := exec.Command("net", "stop", sqlServiceName)
+	stopOutput, err := stopCmd.CombinedOutput()
+	if err != nil {
+		errMsg := strings.TrimSpace(string(stopOutput))
+		if errMsg == "" {
+			errMsg = err.Error()
+		}
+		reportCommandResult(cmd.CommandId, "Failed", fmt.Sprintf("Failed to stop service %s: %s", sqlServiceName, errMsg))
+		return
+	}
+
+	// 4. Vòng lặp chờ cho đến khi dịch vụ dừng hẳn (Tối đa 30 giây)
+	stopped := false
+	for i := 0; i < 30; i++ {
+		state, err := getServiceState(sqlServiceName)
+		if err == nil && strings.Contains(strings.ToUpper(state), "STOPPED") {
+			stopped = true
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if !stopped {
+		reportCommandResult(cmd.CommandId, "Failed", fmt.Sprintf("Service %s failed to enter STOPPED state within 30 seconds.", sqlServiceName))
+		return
+	}
+
+	// 5. Thực hiện khởi động lại dịch vụ (net start)
+	startCmd := exec.Command("net", "start", sqlServiceName)
+	startOutput, err := startCmd.CombinedOutput()
+	if err != nil {
+		errMsg := strings.TrimSpace(string(startOutput))
+		if errMsg == "" {
+			errMsg = err.Error()
+		}
+		reportCommandResult(cmd.CommandId, "Failed", fmt.Sprintf("Service %s stopped but failed to restart: %s", sqlServiceName, errMsg))
+		return
+	}
+
+	// 6. Vòng lặp chờ cho đến khi dịch vụ chạy hẳn (Tối đa 30 giây)
+	running := false
+	for i := 0; i < 30; i++ {
+		state, err := getServiceState(sqlServiceName)
+		if err == nil && strings.Contains(strings.ToUpper(state), "RUNNING") {
+			running = true
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if !running {
+		reportCommandResult(cmd.CommandId, "Failed", fmt.Sprintf("Service %s started but failed to enter RUNNING state within 30 seconds.", sqlServiceName))
+		return
+	}
+
+	// 7. Báo cáo Succeeded khi dịch vụ đã chính thức RUNNING
+	reportCommandResult(cmd.CommandId, "Succeeded", fmt.Sprintf("SQL Server service (%s) restarted and verified RUNNING.", sqlServiceName))
+}
+
+type LogCollectionResult struct {
+	Timestamp   string `json:"timestamp"`
+	Application string `json:"application"`
+	System      string `json:"system"`
+	Security    string `json:"security"`
+}
+
+func handleCollectLogs(cmd GoAgentCommand) {
+	fmt.Println("[Response Action] Executing CollectLogs command...")
+	
+	// 1. Báo cáo trạng thái đang thực thi (Đồng bộ)
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is collecting Windows Event Logs (Application, System, Security).")
+
+	result := LogCollectionResult{
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	if runtime.GOOS == "windows" {
+		// Thu thập Application Logs (10 tin tức mới nhất)
+		appOut, err := exec.Command("wevtutil", "qe", "Application", "/c:10", "/rd:true", "/f:text").CombinedOutput()
+		if err != nil {
+			result.Application = "Error collecting Application logs: " + err.Error()
+		} else {
+			result.Application = string(appOut)
+		}
+
+		// Thu thập System Logs (10 tin tức mới nhất)
+		sysOut, err := exec.Command("wevtutil", "qe", "System", "/c:10", "/rd:true", "/f:text").CombinedOutput()
+		if err != nil {
+			result.System = "Error collecting System logs: " + err.Error()
+		} else {
+			result.System = string(sysOut)
+		}
+
+		// Thu thập Security Logs (10 tin tức mới nhất - Yêu cầu Admin)
+		secOut, err := exec.Command("wevtutil", "qe", "Security", "/c:10", "/rd:true", "/f:text").CombinedOutput()
+		if err != nil {
+			// Ghi nhận lỗi phân quyền hoặc lỗi hệ thống khác
+			result.Security = "Error collecting Security logs (Requires Administrator privileges): " + strings.TrimSpace(string(secOut))
+		} else {
+			result.Security = string(secOut)
+		}
+	} else {
+		// Triển khai dự phòng cho Linux/Unix
+		journalOut, err := exec.Command("journalctl", "-n", "20", "--no-pager").CombinedOutput()
+		if err != nil {
+			result.System = "Error collecting system logs via journalctl: " + err.Error()
+		} else {
+			result.System = string(journalOut)
+		}
+		result.Application = "Not applicable on non-Windows platforms."
+		result.Security = "Not applicable on non-Windows platforms."
+	}
+
+	// 2. Serialize sang JSON
+	jsonBytes, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to format log results as JSON: "+err.Error())
+		return
+	}
+
+	// 3. Báo cáo Succeeded và đính kèm dữ liệu log JSON
+	reportCommandResult(cmd.CommandId, "Succeeded", string(jsonBytes))
+}
+
+func handleRunScan(cmd GoAgentCommand) {
+	fmt.Println("[Response Action] Executing RunScan command...")
+	
+	// 1. Báo cáo trạng thái đang thực thi
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is performing a lightweight signature scan on the application directory.")
+	// Lấy thư mục làm việc hiện tại để quét thực tế
+	dir, err := os.Getwd()
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to resolve current working directory: "+err.Error())
+		return
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to read directory: "+err.Error())
+		return
+	}
+	var auditedFiles int
+	var totalBytes int64
+	var threatsDetected []string
+	// Quét qua danh sách các file trong thư mục
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		auditedFiles++
+		info, err := file.Info()
+		if err == nil {
+			totalBytes += info.Size()
+		}
+		// Giả lập phát hiện chữ ký độc hại qua tên file
+		nameLower := strings.ToLower(file.Name())
+		if strings.Contains(nameLower, "eicar") || 
+		   strings.Contains(nameLower, "webshell") || 
+		   strings.Contains(nameLower, "malware") || 
+		   strings.Contains(nameLower, "hacker") {
+			threatsDetected = append(threatsDetected, file.Name())
+		}
+	}
+	// Chờ 1 giây giả lập thời gian quét
+	time.Sleep(1 * time.Second)
+	// 2. Tổng hợp và báo cáo kết quả
+	if len(threatsDetected) > 0 {
+		reportMsg := fmt.Sprintf("Scan Completed. Audited %d files (%d bytes). WARNING: %d suspicious files detected: %s.", 
+			auditedFiles, totalBytes, len(threatsDetected), strings.Join(threatsDetected, ", "))
+		// Báo cáo thành công nhưng đính kèm cảnh báo phát hiện mã độc
+		reportCommandResult(cmd.CommandId, "Succeeded", reportMsg)
+	} else {
+		reportMsg := fmt.Sprintf("Scan Completed. Audited %d files (%d bytes). No active malware threat signatures detected.", 
+			auditedFiles, totalBytes)
+		reportCommandResult(cmd.CommandId, "Succeeded", reportMsg)
+	}
+}
+
+func handleSyncConfig(cmd GoAgentCommand) {
+	fmt.Println("[Response Action] Executing SyncConfig command...")
+	
+	// 1. Báo cáo trạng thái đang thực thi
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is synchronizing configuration with central server.")
+
+	url := fmt.Sprintf("%s/api/v1/collector/register", globalConfig.ServerUrl)
+	reqBody := RegisterRequest{
+		AgentId:          globalConfig.AgentId,
+		Hostname:         globalConfig.Hostname,
+		OsType:           runtime.GOOS,
+		OsVersion:        fmt.Sprintf("%s %s", runtime.GOOS, runtime.GOARCH),
+		OsInfo:           fmt.Sprintf("%s %s", runtime.GOOS, runtime.GOARCH),
+		IpAddress:        getLocalIP(),
+		HospitalCode:     globalConfig.HospitalCode,
+		SupportedActions: "Restart,CollectDiagnostics,RunScan,SyncConfiguration",
+		Capabilities:     globalConfig.Capabilities,
+		AgentVersion:     globalConfig.AgentVersion,
+		CollectorVersion: "1.2.0",
+		EnrollmentToken:  globalConfig.EnrollmentToken,
+		CollectorId:      globalConfig.CollectorId,
+	}
+
+	jsonBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to marshal registration payload: "+err.Error())
+		return
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to create registration request: "+err.Error())
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Api-Key", globalConfig.ApiKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Connection to central server failed: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		reportCommandResult(cmd.CommandId, "Failed", fmt.Sprintf("Server returned status %d: %s", resp.StatusCode, string(bodyBytes)))
+		return
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to read server response: "+err.Error())
+		return
+	}
+
+	var regResp RegisterResponse
+	if err := json.Unmarshal(bodyBytes, &regResp); err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to parse server response: "+err.Error())
+		return
+	}
+
+	// Chỉ cập nhật giá trị được hỗ trợ (HeartbeatIntervalSeconds)
+	oldInterval := globalConfig.HeartbeatIntervalSeconds
+	if regResp.HeartbeatIntervalSeconds > 0 {
+		globalConfig.HeartbeatIntervalSeconds = regResp.HeartbeatIntervalSeconds
+	}
+
+	// Ghi nhận cập nhật an toàn vào config.json cục bộ
+	configMap := make(map[string]interface{})
+	configFile := "config.json"
+	
+	if existingBytes, err := os.ReadFile(configFile); err == nil {
+		_ = json.Unmarshal(existingBytes, &configMap)
+	}
+
+	configMap["HeartbeatIntervalSeconds"] = globalConfig.HeartbeatIntervalSeconds
+
+	newConfigBytes, err := json.MarshalIndent(configMap, "", "  ")
+	if err == nil {
+		_ = os.WriteFile(configFile, newConfigBytes, 0644)
+	}
+
+	successMsg := fmt.Sprintf("Configuration synchronized successfully. HeartbeatIntervalSeconds updated: %d -> %d.", oldInterval, globalConfig.HeartbeatIntervalSeconds)
+	reportCommandResult(cmd.CommandId, "Succeeded", successMsg)
+}
+
+func handleShutdown(cmd GoAgentCommand) {
+	fmt.Println("[Response Action] Executing Shutdown command...")
+	
+	// 1. Báo cáo trạng thái đang thực thi
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is initiating a system shutdown. A 60-second warning is displayed to the user.")
+
+	var err error
+	if runtime.GOOS == "windows" {
+		// shutdown /s /t 60 /c "System shutdown requested by Administrator via OneSecurity."
+		err = exec.Command("shutdown", "/s", "/t", "60", "/c", "System shutdown requested by Administrator via OneSecurity.").Run()
+	} else {
+		// shutdown -h +1 "System shutdown requested by Administrator via OneSecurity."
+		err = exec.Command("shutdown", "-h", "+1", "System shutdown requested by Administrator via OneSecurity.").Run()
+	}
+
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to initiate shutdown command: "+err.Error())
+		return
+	}
+
+	reportCommandResult(cmd.CommandId, "Succeeded", "System shutdown command initiated successfully with a 60-second warning countdown.")
+}
+
+func handleReboot(cmd GoAgentCommand) {
+	fmt.Println("[Response Action] Executing Reboot command...")
+	
+	// 1. Báo cáo trạng thái đang thực thi
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is initiating a system reboot. A 60-second warning is displayed to the user.")
+
+	var err error
+	if runtime.GOOS == "windows" {
+		// shutdown /r /t 60 /c "System reboot requested by Administrator via OneSecurity."
+		err = exec.Command("shutdown", "/r", "/t", "60", "/c", "System reboot requested by Administrator via OneSecurity.").Run()
+	} else {
+		// shutdown -r +1 "System reboot requested by Administrator via OneSecurity."
+		err = exec.Command("shutdown", "-r", "+1", "System reboot requested by Administrator via OneSecurity.").Run()
+	}
+
+	if err != nil {
+		reportCommandResult(cmd.CommandId, "Failed", "Failed to initiate reboot command: "+err.Error())
+		return
+	}
+
+	reportCommandResult(cmd.CommandId, "Succeeded", "System reboot command initiated successfully with a 60-second warning countdown.")
+}
+
+func handleCollectDiagnostics(cmd GoAgentCommand) {
+	fmt.Println("[Response Action] Executing CollectDiagnostics command...")
+	
+	// Báo cáo Executing trước khi chạy
+	reportCommandResult(cmd.CommandId, "Executing", "Agent is starting execution of CollectDiagnostics")
+	
+	// Giữ nguyên giả lập 2s xử lý của hàm cũ (backward compatibility)
+	time.Sleep(2 * time.Second)
+
+	diagnostics := map[string]interface{}{
+		"timestamp":    time.Now().Format(time.RFC3339),
+		"os":           runtime.GOOS,
+		"arch":         runtime.GOARCH,
+		"numCpu":       runtime.NumCPU(),
+		"numGoroutine": runtime.NumGoroutine(),
+		"mockProcesses": []string{
+			"onesecurity-agent.exe",
+			"explorer.exe",
+			"chrome.exe",
+			"sqlservr.exe",
+			"w3wp.exe",
+		},
+		"diskUsagePercent": 42.5,
+		"ramUsagePercent":  61.2,
+	}
+	diagBytes, _ := json.Marshal(diagnostics)
+	
+	// Báo cáo Succeeded kèm dữ liệu JSON chẩn đoán
+	reportCommandResult(cmd.CommandId, "Succeeded", string(diagBytes))
+}
+
 
 // ----------------------------------------------------------------------------
 // Mock Hospital Web Application (Cyber Range) Implementation

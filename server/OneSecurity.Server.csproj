@@ -84,6 +84,8 @@
     <Compile Include="Services\ResponseService.cs" />
     <Compile Include="Services\IResponseActionService.cs" />
     <Compile Include="Services\ResponseActionService.cs" />
+    <Compile Include="Services\ICommandQueueService.cs" />
+    <Compile Include="Services\CommandQueueService.cs" />
     <Compile Include="Services\IAssetService.cs" />
     <Compile Include="Services\AssetService.cs" />
     <Compile Include="Services\ICollectorService.cs" />

@@ -14,7 +14,7 @@ import {
   Lock, User as UserIcon, LogOut, Building, Sliders, Zap
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-
+import { ResponseActionApi, ResponseActionDto } from './services/responseAction.service';
 // Define Interfaces
 interface Hospital {
   id: number;
@@ -158,7 +158,89 @@ function DashboardMain({
   // App Navigation
   const [activeTab, setActiveTab] = useState<'overview' | 'soc-dashboard' | 'threat-hunting' | 'timeline' | 'servers' | 'infrastructure' | 'alerts' | 'logs' | 'settings' | 'incidents' | 'rules' | 'responses'>('overview');
   const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
-  
+    // Response Actions States
+  const [responseActions, setResponseActions] = useState<ResponseActionDto[]>([]);
+  const [responseActionsLoading, setResponseActionsLoading] = useState(false);
+  const [showResponseActionModal, setShowResponseActionModal] = useState(false);
+  const [selectedActionType, setSelectedActionType] = useState<string | null>(null);
+  const [actionParameters, setActionParameters] = useState('');
+  const [actionMetadata, setActionMetadata] = useState('');
+  const [submittingAction, setSubmittingAction] = useState(false);
+  const [showActionConfirm, setShowActionConfirm] = useState(false);
+
+  // Tải danh sách lịch sử lệnh ứng phó của Agent từ API
+  const fetchResponseActions = async (agentId: string) => {
+    setResponseActionsLoading(true);
+    try {
+      const data = await ResponseActionApi.getPaged({ agentId, pageSize: 20 });
+      setResponseActions(data.items || []);
+    } catch (err) {
+      console.error('Failed to fetch response actions history:', err);
+    } finally {
+      setResponseActionsLoading(false);
+    }
+  };
+
+  // Thực thi gửi lệnh ứng phó lên API
+  const executeResponseAction = async (actionType: string) => {
+    if (selectedServerId === null) return;
+    const server = servers.find(s => s.id === selectedServerId);
+    if (!server) return;
+
+    setSubmittingAction(true);
+    try {
+      // 1. Tự động lấy một IncidentId hợp lệ từ backend để thỏa mãn ràng buộc khóa ngoại (Foreign Key)
+      let targetIncidentId = 0;
+      const incRes = await authFetch('/api/v1/incidents?page=1&pageSize=1');
+      if (incRes.ok) {
+        const incData = await incRes.json();
+        const items = incData.items || incData;
+        if (items && items.length > 0) {
+          targetIncidentId = items[0].id;
+        }
+      }
+
+      if (targetIncidentId === 0) {
+        throw new Error('No incidents found in database. A valid IncidentId is required to trigger response actions.');
+      }
+
+      // 2. Gửi yêu cầu kèm IncidentId hợp lệ
+      await ResponseActionApi.create({
+        incidentId: targetIncidentId,
+        agentId: server.agentId,
+        actionType: actionType,
+        parameters: actionParameters || undefined,
+        metadata: actionMetadata || undefined
+      });
+
+      showToast(`Response action ${actionType} triggered successfully!`, 'success');
+      setShowResponseActionModal(false);
+      setShowActionConfirm(false);
+      setSelectedActionType(null);
+      setActionParameters('');
+      setActionMetadata('');
+      
+      // Reload lại danh sách lịch sử lệnh
+      await fetchResponseActions(server.agentId);
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || 'Failed to trigger response action.', 'critical');
+    } finally {
+      setSubmittingAction(false);
+    }
+  };
+
+  // Tự động load lịch sử lệnh khi mở màn hình chi tiết máy trạm
+  useEffect(() => {
+    if (selectedServerId !== null) {
+      const server = servers.find(s => s.id === selectedServerId);
+      if (server) {
+        fetchResponseActions(server.agentId);
+      }
+    } else {
+      setResponseActions([]);
+    }
+  }, [selectedServerId, servers]);
   // Incident State
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [incidentResponses, setIncidentResponses] = useState<any[]>([]);
@@ -1096,13 +1178,40 @@ function DashboardMain({
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {/* Back and Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button onClick={() => setSelectedServerId(null)} className="btn">Back</button>
-          <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{server.hostname}</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Agent ID: {server.agentId} | Type: {server.osType}</p>
+        {/* Back and Title with Response Actions Trigger */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button onClick={() => setSelectedServerId(null)} className="btn">Back</button>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{server.hostname}</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Agent ID: {server.agentId} | Type: {server.osType}</p>
+            </div>
           </div>
+          {user?.role !== 'Viewer' && (
+            <button 
+              onClick={() => {
+                setSelectedActionType(null);
+                setActionParameters('');
+                setActionMetadata('');
+                setShowResponseActionModal(true);
+              }} 
+              className="btn btn-primary"
+              style={{ 
+                background: 'var(--primary)', 
+                color: '#ffffff', 
+                border: 'none', 
+                borderRadius: '8px', 
+                padding: '8px 16px', 
+                cursor: 'pointer', 
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Zap size={14} /> Response Actions
+            </button>
+          )}
         </div>
 
         {/* Server metrics and info */}
@@ -1219,6 +1328,96 @@ function DashboardMain({
                       <td style={{ fontWeight: 600 }}>{log.title}</td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {log.details}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Response Actions History */}
+        <div className="glass-panel" style={{ marginTop: '1.5rem' }}>
+          <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Activity size={16} color="var(--primary)" /> Response Actions History
+          </h4>
+          <div className="custom-table-container">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Requested At</th>
+                  <th>Action Type</th>
+                  <th>Status</th>
+                  <th>Requested By</th>
+                  <th>Parameters</th>
+                  <th>Execution Details</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {responseActionsLoading ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                      Loading history...
+                    </td>
+                  </tr>
+                ) : responseActions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                      No response actions triggered for this agent yet.
+                    </td>
+                  </tr>
+                ) : (
+                  responseActions.map(action => (
+                    <tr key={action.id}>
+                      <td style={{ fontSize: '0.75rem' }}>{new Date(action.requestedAt).toLocaleString()}</td>
+                      <td style={{ fontWeight: 600 }}>{action.actionType}</td>
+                      <td>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          background: action.status === 'Pending' ? 'rgba(245, 158, 11, 0.15)' :
+                                      action.status === 'Executing' ? 'rgba(99, 102, 241, 0.15)' :
+                                      action.status === 'Completed' || action.status === 'Succeeded' ? 'rgba(16, 185, 129, 0.15)' :
+                                      'rgba(239, 68, 68, 0.15)',
+                          color: action.status === 'Pending' ? 'var(--warning)' :
+                                 action.status === 'Executing' ? 'var(--primary)' :
+                                 action.status === 'Completed' || action.status === 'Succeeded' ? 'var(--success)' :
+                                 'var(--danger)'
+                        }}>
+                          {action.status}
+                        </span>
+                      </td>
+                      <td>{action.createdBy || action.requestedByUserName}</td>
+                      <td style={{ fontSize: '0.75rem', fontFamily: 'monospace', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={action.parameters}>
+                        {action.parameters || 'None'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={action.output || action.errorMessage}>
+                        {action.status === 'Failed' ? `Error: ${action.errorMessage}` : (action.output || 'Awaiting execution...')}
+                      </td>
+                      <td>
+                        {action.status === 'Pending' && (
+                          <button
+                            onClick={async () => {
+                              if (window.confirm('Are you sure you want to cancel this response action?')) {
+                                try {
+                                  await ResponseActionApi.cancel(action.id);
+                                  showToast('Action cancelled successfully', 'success');
+                                  fetchResponseActions(server.agentId);
+                                } catch (err: any) {
+                                  showToast(err.message, 'critical');
+                                }
+                              }
+                            }}
+                            className="btn btn-danger"
+                            style={{ padding: '2px 8px', fontSize: '0.65rem', background: 'rgba(239, 68, 68, 0.15)', color: 'var(--danger)', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            Cancel
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -2633,6 +2832,156 @@ function DashboardMain({
             <CheckCircle color="var(--success)" size={20} />
           )}
           <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{toast.message}</span>
+        </div>
+      )}
+
+      {/* Response Action Trigger Modal */}
+      {showResponseActionModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div className="glass-panel" style={{ width: '650px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Zap size={18} color="var(--primary)" /> Trigger Incident Response Action
+              </h3>
+              <button 
+                onClick={() => { setShowResponseActionModal(false); setSelectedActionType(null); }}
+                style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.25rem', cursor: 'pointer' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {!selectedActionType ? (
+              <>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Select an automated response capability to execute on this agent node:
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                  {[
+                    { type: 'RestartAgent', label: 'Restart Agent' },
+                    { type: 'RestartCollector', label: 'Restart Collector' },
+                    { type: 'RestartIIS', label: 'Restart IIS' },
+                    { type: 'RestartSqlServer', label: 'Restart SQL Server' },
+                    { type: 'CollectLogs', label: 'Collect Logs' },
+                    { type: 'RunScan', label: 'Run Scan' },
+                    { type: 'SyncConfig', label: 'Sync Configuration' },
+                    { type: 'Shutdown', label: 'Shutdown Host' },
+                    { type: 'Reboot', label: 'Reboot Host' }
+                  ].map(btn => (
+                    <button
+                      key={btn.type}
+                      onClick={() => setSelectedActionType(btn.type)}
+                      className="btn"
+                      style={{
+                        padding: '12px 8px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        borderRadius: '8px',
+                        border: '1px solid var(--panel-border)',
+                        background: 'rgba(255,255,255,0.01)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Selected Action:</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>{selectedActionType}</span>
+                  <button 
+                    onClick={() => setSelectedActionType(null)} 
+                    style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem' }}
+                  >
+                    Change Action
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Parameters (Optional JSON / String)</label>
+                  <textarea
+                    placeholder='e.g., {"iis_site": "Default Web Site"} or "all"'
+                    value={actionParameters}
+                    onChange={e => setActionParameters(e.target.value)}
+                    style={{
+                      background: '#111827', border: '1px solid var(--panel-border)', borderRadius: '6px',
+                      padding: '8px', color: '#fff', fontSize: '0.8rem', minHeight: '60px', fontFamily: 'monospace'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Metadata (Optional JSON Context)</label>
+                  <textarea
+                    placeholder='e.g., {"reason": "Incident cleanup"}'
+                    value={actionMetadata}
+                    onChange={e => setActionMetadata(e.target.value)}
+                    style={{
+                      background: '#111827', border: '1px solid var(--panel-border)', borderRadius: '6px',
+                      padding: '8px', color: '#fff', fontSize: '0.8rem', minHeight: '60px', fontFamily: 'monospace'
+                    }}
+                  />
+                </div>
+
+                {showActionConfirm ? (
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)',
+                    padding: '1rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.75rem'
+                  }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <AlertOctagon size={16} /> WARNING: SYSTEM IMPACT ALERT
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      You are about to execute the <strong>{selectedActionType}</strong> command on this remote node. This action might cause service interruption or system downtime. Are you absolutely sure you want to proceed?
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignSelf: 'flex-end' }}>
+                      <button 
+                        onClick={() => setShowActionConfirm(false)} 
+                        className="btn"
+                        style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.05)' }}
+                        disabled={submittingAction}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={() => executeResponseAction(selectedActionType)}
+                        className="btn btn-danger"
+                        style={{ fontSize: '0.75rem', background: 'var(--danger)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                        disabled={submittingAction}
+                      >
+                        {submittingAction ? 'Executing...' : 'Yes, Execute Command'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '0.75rem', alignSelf: 'flex-end', marginTop: '0.5rem' }}>
+                    <button 
+                      onClick={() => { setShowResponseActionModal(false); setSelectedActionType(null); }} 
+                      className="btn"
+                      style={{ background: 'rgba(255,255,255,0.05)' }}
+                    >
+                      Close
+                    </button>
+                    <button 
+                      onClick={() => setShowActionConfirm(true)}
+                      className="btn btn-primary"
+                      style={{ background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Trigger Action
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

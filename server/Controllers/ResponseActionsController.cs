@@ -30,20 +30,18 @@ namespace OneSecurity.Server.Controllers
                 return BadRequest(ModelState);
             }
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
-
             try
             {
-                var result = await _service.CreateActionAsync(request, userId);
+                var result = await _service.CreateAsync(request, User);
                 return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
             }
             catch (UnauthorizedAccessException ex)
             {
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
             }
             catch (ArgumentException ex)
             {
@@ -101,7 +99,7 @@ namespace OneSecurity.Server.Controllers
             }
         }
 
-        [HttpDelete("{id}")]
+        [HttpPost("{id}/cancel")]
         public async Task<IActionResult> CancelAction(long id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -128,5 +126,5 @@ namespace OneSecurity.Server.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-    }
-}
+    } // Dấu đóng ngoặc nhọn của Class nằm ở đây
+} // Dấu đóng ngoặc nhọn của Namespace

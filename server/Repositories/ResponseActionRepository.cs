@@ -52,7 +52,16 @@ namespace OneSecurity.Server.Repositories
                 .OrderBy(r => r.RequestedAt)
                 .ToListAsync();
         }
-
+        public async Task<ResponseAction?> GetNextPendingActionAsync(string agentId)
+{
+    return await _context.ResponseActions
+        .Include(r => r.Agent)
+        .Include(r => r.RequestedByUser)
+        .Include(r => r.Hospital)
+        .Where(r => r.AgentId == agentId && r.Status == ResponseStatus.Pending)
+        .OrderBy(r => r.RequestedAt) // FIFO: Lệnh yêu cầu trước (cũ nhất) sẽ được lấy trước
+        .FirstOrDefaultAsync();
+}
         public async Task<(List<ResponseAction> Items, int TotalCount)> GetPagedAsync(
             int page, 
             int pageSize, 
